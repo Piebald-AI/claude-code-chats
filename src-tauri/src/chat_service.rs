@@ -20,12 +20,14 @@ impl ChatService {
 
         while let Some(entry) = entries.next_entry().await? {
             if entry.file_type().await?.is_dir() {
-                let project_name = entry.file_name().to_string_lossy().to_string();
                 let project_path = entry.path();
                 
                 let sessions = self.get_project_sessions(&project_path).await?;
                 
                 if !sessions.is_empty() {
+                    // Use the real project path from the first session's cwd property
+                    let project_name = sessions[0].project_path.clone();
+                    
                     projects.push(ProjectFolder {
                         name: project_name,
                         path: project_path.to_string_lossy().to_string(),

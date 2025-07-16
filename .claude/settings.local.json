@@ -5,7 +5,8 @@
       "Bash(pnpm add:*)",
       "Bash(cargo check:*)",
       "Bash(pnpm dlx:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(pnpm build:*)"
     ],
     "deny": []
   }
