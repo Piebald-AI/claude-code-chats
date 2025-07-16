@@ -51,3 +51,7 @@ This is a Tauri + React + TypeScript desktop application. The project combines a
 ## Documentation
 
 The `docs/shadcn-ui/` directory contains MDX documentation for various shadcn/ui components, suggesting this project may be using or planning to use shadcn/ui component library.
+
+## Safety and Warnings
+
+- Never, **EVER** run _any_ `pnpm tauri *` commands.  _Not even with flags like `--no-watch`!!!_

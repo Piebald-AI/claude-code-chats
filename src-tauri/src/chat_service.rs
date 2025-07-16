@@ -177,13 +177,150 @@ impl ChatService {
             if let Ok(raw_msg) = serde_json::from_str::<RawJsonlMessage>(&line) {
                 if raw_msg.message_type == "user" || raw_msg.message_type == "assistant" {
                     if let Ok(chat_msg) = self.convert_raw_to_chat_message(&raw_msg) {
-                        messages.push(chat_msg);
+                        // Check if we should merge this message with the previous one
+                        if self.should_merge_with_previous(&chat_msg, &messages) {
+                            self.merge_tool_calls_with_previous(&chat_msg, &mut messages);
+                        } else if self.should_merge_tool_results_with_previous(&chat_msg, &messages) {
+                            self.merge_tool_results_with_previous(&chat_msg, &mut messages);
+                        } else {
+                            messages.push(chat_msg);
+                        }
                     }
                 }
             }
         }
 
         Ok(messages)
+    }
+
+    fn should_merge_with_previous(&self, current_msg: &ChatMessage, messages: &[ChatMessage]) -> bool {
+        // Only merge assistant messages
+        if current_msg.message_type != "assistant" {
+            return false;
+        }
+
+        // Current message must only contain tool calls (no text content)
+        if !self.is_tool_calls_only(current_msg) {
+            return false;
+        }
+
+        // Must have a previous message
+        if let Some(prev_msg) = messages.last() {
+            // Previous message must also be an assistant message
+            prev_msg.message_type == "assistant"
+        } else {
+            false
+        }
+    }
+
+    fn is_tool_calls_only(&self, message: &ChatMessage) -> bool {
+        match &message.content {
+            MessageContent::Text(_) => false,
+            MessageContent::Mixed(blocks) => {
+                // Check if all blocks are tool_use blocks (no text blocks)
+                blocks.iter().all(|block| block.block_type == "tool_use")
+            }
+        }
+    }
+
+    fn merge_tool_calls_with_previous(&self, current_msg: &ChatMessage, messages: &mut Vec<ChatMessage>) {
+        if let Some(prev_msg) = messages.last_mut() {
+            // Extract tool calls from current message
+            if let MessageContent::Mixed(current_blocks) = &current_msg.content {
+                let tool_calls: Vec<ContentBlock> = current_blocks
+                    .iter()
+                    .filter(|block| block.block_type == "tool_use")
+                    .cloned()
+                    .collect();
+
+                // Add tool calls to previous message
+                match &mut prev_msg.content {
+                    MessageContent::Text(text) => {
+                        // Convert text to mixed content and add tool calls
+                        let mut blocks = vec![ContentBlock {
+                            block_type: "text".to_string(),
+                            text: Some(text.clone()),
+                            name: None,
+                            input: None,
+                            tool_use_id: None,
+                            content: None,
+                            tool_use_result: None,
+                        }];
+                        blocks.extend(tool_calls);
+                        prev_msg.content = MessageContent::Mixed(blocks);
+                    }
+                    MessageContent::Mixed(prev_blocks) => {
+                        // Add tool calls to existing mixed content
+                        prev_blocks.extend(tool_calls);
+                    }
+                }
+            }
+        }
+    }
+
+    fn should_merge_tool_results_with_previous(&self, current_msg: &ChatMessage, messages: &[ChatMessage]) -> bool {
+        // Only merge user messages
+        if current_msg.message_type != "user" {
+            return false;
+        }
+
+        // Current message must only contain tool results (no text content)
+        if !self.is_tool_results_only(current_msg) {
+            return false;
+        }
+
+        // Must have a previous message
+        if let Some(prev_msg) = messages.last() {
+            // Previous message must also be a user message
+            prev_msg.message_type == "user"
+        } else {
+            false
+        }
+    }
+
+    fn is_tool_results_only(&self, message: &ChatMessage) -> bool {
+        match &message.content {
+            MessageContent::Text(_) => false,
+            MessageContent::Mixed(blocks) => {
+                // Check if all blocks are tool_result blocks (no text blocks)
+                !blocks.is_empty() && blocks.iter().all(|block| block.block_type == "tool_result")
+            }
+        }
+    }
+
+    fn merge_tool_results_with_previous(&self, current_msg: &ChatMessage, messages: &mut Vec<ChatMessage>) {
+        if let Some(prev_msg) = messages.last_mut() {
+            // Extract tool results from current message
+            if let MessageContent::Mixed(current_blocks) = &current_msg.content {
+                let tool_results: Vec<ContentBlock> = current_blocks
+                    .iter()
+                    .filter(|block| block.block_type == "tool_result")
+                    .cloned()
+                    .collect();
+
+                // Add tool results to previous message
+                match &mut prev_msg.content {
+                    MessageContent::Text(text) => {
+                        // Convert text to mixed content and add tool results
+                        let mut blocks = vec![ContentBlock {
+                            block_type: "text".to_string(),
+                            text: Some(text.clone()),
+                            name: None,
+                            input: None,
+                            tool_use_id: None,
+                            content: None,
+                            tool_use_result: None,
+                        }];
+                        blocks.extend(tool_results);
+                        prev_msg.content = MessageContent::Mixed(blocks);
+                    }
+                    MessageContent::Mixed(prev_blocks) => {
+                        // Add tool results to existing mixed content
+                        prev_blocks.extend(tool_results);
+                    }
+                }
+            }
+        }
     }
 
     fn convert_raw_to_chat_message(&self, raw: &RawJsonlMessage) -> Result<ChatMessage> {

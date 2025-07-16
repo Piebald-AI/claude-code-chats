@@ -7,10 +7,8 @@ import {
   MinimalSidebarMenuItem,
   MinimalSidebarGroup,
   MinimalSidebarGroupLabel,
-  MinimalSidebarSeparator,
 } from "@/components/ui/minimal-sidebar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { NavProjects } from "@/components/NavProjects";
 import { useProjects, useSearchChats } from "@/hooks/useChats";
