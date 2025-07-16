@@ -88,7 +88,7 @@ pub struct SearchResult {
 
 impl ChatMessage {
     pub fn extract_text(&self) -> String {
-        match &self.content {
+        let raw_text = match &self.content {
             MessageContent::Text(text) => text.clone(),
             MessageContent::Mixed(blocks) => {
                 blocks
@@ -98,7 +98,9 @@ impl ChatMessage {
                     .collect::<Vec<_>>()
                     .join("\n")
             }
-        }
+        };
+        
+        ChatSession::process_backspaces(&raw_text)
     }
 
     pub fn has_tool_calls(&self) -> bool {
@@ -138,8 +140,11 @@ impl ChatSession {
     }
 
     fn generate_title(content: &str) -> String {
+        // Process backspace characters first
+        let processed_content = Self::process_backspaces(content);
+        
         // Extract first meaningful line or first 50 chars
-        let content = content.trim();
+        let content = processed_content.trim();
         if content.is_empty() {
             return "Untitled Chat".to_string();
         }
@@ -160,5 +165,25 @@ impl ChatSession {
         } else {
             format!("{}...", &first_line[..47])
         }
+    }
+
+    fn process_backspaces(text: &str) -> String {
+        if !text.contains('\u{0008}') {
+            return text.to_string();
+        }
+
+        let mut result = String::new();
+        
+        for ch in text.chars() {
+            if ch == '\u{0008}' {
+                // Remove the last character from result if it exists
+                result.pop();
+            } else {
+                // Add the character to result
+                result.push(ch);
+            }
+        }
+        
+        result
     }
 }

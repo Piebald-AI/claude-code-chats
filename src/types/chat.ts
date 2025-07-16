@@ -44,6 +44,32 @@ export interface SearchResult {
   match_type: string; // "content", "tool_name", "tool_result"
 }
 
+// Utility function for processing backspace characters
+function processBackspaces(text: string): string {
+  if (!text.includes('\b')) {
+    return text;
+  }
+
+  let result = '';
+  
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    
+    if (char === '\b') {
+      // Remove the last character from result if it exists
+      if (result.length > 0) {
+        result = result.slice(0, -1);
+      }
+      // Skip the backspace character itself
+    } else {
+      // Add the character to result
+      result += char;
+    }
+  }
+  
+  return result;
+}
+
 // Helper functions
 export const isTextContent = (content: MessageContent): content is string => {
   return typeof content === 'string';
@@ -54,18 +80,20 @@ export const isMixedContent = (content: MessageContent): content is ContentBlock
 };
 
 export const extractMessageText = (message: ChatMessage): string => {
-  if (typeof message.content === 'string') {
-    return message.content;
-  }
+  let rawText: string;
   
-  if (Array.isArray(message.content)) {
-    return message.content
+  if (typeof message.content === 'string') {
+    rawText = message.content;
+  } else if (Array.isArray(message.content)) {
+    rawText = message.content
       .filter(block => block.text)
       .map(block => block.text!)
       .join('\n');
+  } else {
+    rawText = '';
   }
   
-  return '';
+  return processBackspaces(rawText);
 };
 
 export const getToolCalls = (message: ChatMessage): ContentBlock[] => {

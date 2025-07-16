@@ -6,6 +6,7 @@ import { CodeBlock } from "@/components/CodeBlock";
 import { TodoList } from "@/components/TodoList";
 import ReactMarkdown from "react-markdown";
 import type { ChatMessage, ContentBlock } from "@/types/chat";
+import { processBackspaces } from "@/utils/textProcessing";
 
 interface MessageRendererProps {
   message: ChatMessage;
@@ -82,6 +83,8 @@ interface MessageTextProps {
 const MessageText: React.FC<MessageTextProps> = ({ content }) => {
   if (!content.trim()) return null;
 
+  const processedContent = processBackspaces(content);
+
   return (
     <div className="prose prose-sm max-w-none dark:prose-invert">
       <ReactMarkdown
@@ -116,7 +119,7 @@ const MessageText: React.FC<MessageTextProps> = ({ content }) => {
           },
         }}
       >
-        {content}
+        {processedContent}
       </ReactMarkdown>
     </div>
   );
