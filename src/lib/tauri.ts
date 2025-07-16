@@ -14,6 +14,10 @@ export const tauriApi = {
     return await invoke('search_chats', { query });
   },
 
+  async getSessionFilePath(sessionId: string): Promise<string> {
+    return await invoke('get_session_file_path', { sessionId });
+  },
+
   // Legacy greet function for testing
   async greet(name: string): Promise<string> {
     return await invoke('greet', { name });

@@ -23,6 +23,12 @@ async fn search_chats(query: String) -> Result<Vec<SearchResult>, String> {
     service.search_chats(&query).await.map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+async fn get_session_file_path(session_id: String) -> Result<String, String> {
+    let service = ChatService::new();
+    service.get_session_file_path(&session_id).await.map_err(|e| e.to_string())
+}
+
 // Legacy greet command for compatibility
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -37,7 +43,8 @@ pub fn run() {
             greet,
             get_all_projects,
             get_chat_messages,
-            search_chats
+            search_chats,
+            get_session_file_path
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

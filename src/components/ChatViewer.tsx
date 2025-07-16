@@ -1,10 +1,19 @@
 import React from "react";
-import { MessageSquare, User, Bot, Clock } from "lucide-react";
+import { MessageSquare, User, Bot, Clock, MoreHorizontal, Copy, ExternalLink } from "lucide-react";
 import { useChatMessages } from "@/hooks/useChats";
 import { MessageRenderer } from "@/components/MessageRenderer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import type { ChatSession, ChatMessage } from "@/types/chat";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { openPath } from "@tauri-apps/plugin-opener";
+import { tauriApi } from "@/lib/tauri";
 
 interface ChatViewerProps {
   selectedSession: ChatSession | null;
@@ -68,11 +77,48 @@ export const ChatViewer: React.FC<ChatViewerProps> = ({ selectedSession }) => {
     }
   };
 
+  const handleCopyPath = async () => {
+    try {
+      const filePath = await tauriApi.getSessionFilePath(selectedSession.id);
+      await navigator.clipboard.writeText(filePath);
+    } catch (error) {
+      console.error('Failed to copy path:', error);
+    }
+  };
+
+  const handleOpenFile = async () => {
+    try {
+      const filePath = await tauriApi.getSessionFilePath(selectedSession.id);
+      await openPath(filePath);
+    } catch (error) {
+      console.error('Failed to open file:', error);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
       <div className="border-b p-4 bg-muted/50">
-        <h2 className="text-lg font-semibold truncate">{selectedSession.title}</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold truncate">{selectedSession.title}</h2>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleCopyPath}>
+                <Copy className="mr-2 h-4 w-4" />
+                Copy JSONL Path
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleOpenFile}>
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Open JSONL File
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
         <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
           <span className="flex items-center gap-1">
             <Clock className="h-3 w-3" />

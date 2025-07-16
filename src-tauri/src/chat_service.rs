@@ -360,4 +360,9 @@ impl ChatService {
             text.chars().take(60).collect::<String>() + if text.chars().count() > 60 { "..." } else { "" }
         }
     }
+
+    pub async fn get_session_file_path(&self, session_id: &str) -> Result<String> {
+        let file_path = self.find_session_file(session_id).await?;
+        Ok(file_path.to_string_lossy().to_string())
+    }
 }
