@@ -11,7 +11,10 @@ pub struct ChatService {
 
 impl ChatService {
     pub fn new() -> Self {
-        let projects_path = PathBuf::from(r"C:\Users\user\.claude\projects");
+        let projects_path = dirs::home_dir()
+            .expect("Unable to determine home directory")
+            .join(".claude")
+            .join("projects");
         Self { projects_path }
     }
 
