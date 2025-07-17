@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, MessageCircle, FileText, Wrench, Hash, Brain } from "lucide-react";
+import { Search, MessageCircle, FileText, Wrench, Hash, Brain, Filter, X } from "lucide-react";
 import {
   MinimalSidebarInput,
   MinimalSidebarMenu,
@@ -9,6 +9,12 @@ import {
   MinimalSidebarGroupLabel,
 } from "@/components/ui/minimal-sidebar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { 
+  Collapsible,
+  CollapsibleContent,
+} from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { NavProjects } from "@/components/NavProjects";
 import { useProjects, useSearchChats } from "@/hooks/useChats";
@@ -19,6 +25,15 @@ interface AppSidebarProps {
   onSelectSession: (session: ChatSession) => void;
 }
 
+const ALL_MATCH_TYPES = [
+  "content",
+  "thinking", 
+  "tool_name",
+  "tool_input",
+  "tool_result",
+  "tool_structured_result"
+] as const;
+
 export function AppSidebar({
   selectedSession,
   onSelectSession,
@@ -26,6 +41,8 @@ export function AppSidebar({
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [isSearchMode, setIsSearchMode] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set(ALL_MATCH_TYPES));
+  const [showFilters, setShowFilters] = useState(false);
 
   const { data: projects } = useProjects();
 
@@ -44,6 +61,35 @@ export function AppSidebar({
   }, [searchQuery]);
 
   const { data: searchResults, isLoading } = useSearchChats(debouncedQuery);
+
+  // Filter search results based on active filters
+  const filteredResults = searchResults?.filter(result => 
+    activeFilters.has(result.match_type)
+  );
+
+  const toggleFilter = (matchType: string) => {
+    setActiveFilters(prev => {
+      const newFilters = new Set(prev);
+      if (newFilters.has(matchType)) {
+        newFilters.delete(matchType);
+      } else {
+        newFilters.add(matchType);
+      }
+      return newFilters;
+    });
+  };
+
+  const toggleAllFilters = () => {
+    if (activeFilters.size === ALL_MATCH_TYPES.length) {
+      setActiveFilters(new Set());
+    } else {
+      setActiveFilters(new Set(ALL_MATCH_TYPES));
+    }
+  };
+
+  const clearFilters = () => {
+    setActiveFilters(new Set(ALL_MATCH_TYPES));
+  };
 
   const getMatchTypeIcon = (matchType: string) => {
     switch (matchType) {
@@ -158,6 +204,74 @@ export function AppSidebar({
             className="pl-10"
           />
         </div>
+        
+        {isSearchMode && (
+          <div className="flex items-center gap-2 px-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+              className="h-8 flex items-center gap-2"
+            >
+              <Filter className="h-4 w-4" />
+              Filters
+              {activeFilters.size < ALL_MATCH_TYPES.length && (
+                <Badge variant="secondary" className="ml-1 text-xs">
+                  {activeFilters.size}
+                </Badge>
+              )}
+            </Button>
+            {activeFilters.size < ALL_MATCH_TYPES.length && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="h-8 flex items-center gap-1"
+              >
+                <X className="h-3 w-3" />
+                Clear
+              </Button>
+            )}
+          </div>
+        )}
+        
+        {isSearchMode && (
+          <Collapsible open={showFilters} onOpenChange={setShowFilters}>
+            <CollapsibleContent>
+              <div className="px-2 py-2 space-y-2 border-t">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Filter by type:</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={toggleAllFilters}
+                    className="h-6 text-xs"
+                  >
+                    {activeFilters.size === ALL_MATCH_TYPES.length ? "None" : "All"}
+                  </Button>
+                </div>
+                <div className="space-y-1">
+                  {ALL_MATCH_TYPES.map((matchType) => (
+                    <div key={matchType} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={matchType}
+                        checked={activeFilters.has(matchType)}
+                        onCheckedChange={() => toggleFilter(matchType)}
+                      />
+                      <label
+                        htmlFor={matchType}
+                        className="flex items-center gap-2 text-sm cursor-pointer"
+                      >
+                        {getMatchTypeIcon(matchType)}
+                        <span>{getMatchTypeLabel(matchType)}</span>
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        )}
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-auto">
@@ -165,7 +279,9 @@ export function AppSidebar({
           <MinimalSidebarGroup>
             <MinimalSidebarGroupLabel>
               Search Results
-              {searchResults && ` (${searchResults.length})`}
+              {searchResults && filteredResults && (
+                ` (${filteredResults.length}${filteredResults.length !== searchResults.length ? ` of ${searchResults.length}` : ''})`
+              )}
             </MinimalSidebarGroupLabel>
             <MinimalSidebarMenu>
               {isLoading ? (
@@ -175,16 +291,28 @@ export function AppSidebar({
                     <span className="text-sm">Searching...</span>
                   </div>
                 </MinimalSidebarMenuItem>
-              ) : !searchResults || searchResults.length === 0 ? (
+              ) : !filteredResults || filteredResults.length === 0 ? (
                 <MinimalSidebarMenuItem>
                   <div className="px-2 py-1 text-sm text-muted-foreground">
-                    {debouncedQuery
-                      ? `No results for "${debouncedQuery}"`
-                      : "Start typing to search..."}
+                    {debouncedQuery ? (
+                      searchResults && searchResults.length > 0 ? (
+                        <>
+                          No results match current filters
+                          <br />
+                          <span className="text-xs opacity-75">
+                            {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} available
+                          </span>
+                        </>
+                      ) : (
+                        `No results for "${debouncedQuery}"`
+                      )
+                    ) : (
+                      "Start typing to search..."
+                    )}
                   </div>
                 </MinimalSidebarMenuItem>
               ) : (
-                searchResults.map((result, index) => (
+                filteredResults.map((result, index) => (
                   <MinimalSidebarMenuItem
                     key={`${result.session_id}-${result.message_uuid}-${index}`}
                   >
