@@ -20,6 +20,7 @@ pub struct ChatMessage {
     pub tool_use_id: Option<String>,
     pub cwd: Option<String>,
     pub version: Option<String>,
+    pub model: Option<String>, // Model name for assistant messages
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -467,6 +467,7 @@ impl ChatService {
             tool_use_id: None, // Will be populated from content blocks if needed
             cwd: Some(raw.cwd.clone()),
             version: Some(raw.version.clone()),
+            model: raw.message.model.clone(),
         })
     }
 

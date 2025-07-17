@@ -185,7 +185,7 @@ const MessageBlock: React.FC<MessageBlockProps> = ({ message }) => {
         <div className="flex-1">
           <div className="flex items-center gap-2">
             <span className="font-medium text-sm">
-              {isUser ? "You" : "Claude"}
+              {isUser ? "You" : (message.model || "Claude")}
             </span>
             <span className="text-xs text-muted-foreground">
               {formatTimestamp(message.timestamp)}

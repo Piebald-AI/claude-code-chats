@@ -16,6 +16,7 @@ export interface ChatMessage {
   tool_use_id: string | null;
   cwd: string | null;
   version: string | null;
+  model?: string; // Model name for assistant messages (e.g., "claude-sonnet-4-20250514")
 }
 
 export type MessageContent = string | ContentBlock[];
