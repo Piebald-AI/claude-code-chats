@@ -46,19 +46,6 @@ export const TodoList: React.FC<TodoListProps> = ({ todos, title, className }) =
     }
   };
 
-  const getPriorityBorderColor = (priority: Todo['priority']) => {
-    switch (priority) {
-      case 'high':
-        return 'border-r-red-500';
-      case 'medium':
-        return 'border-r-yellow-500';
-      case 'low':
-        return 'border-r-green-500';
-      default:
-        return 'border-r-gray-500';
-    }
-  };
-
   const getStatusText = (status: Todo['status']) => {
     switch (status) {
       case 'completed':
