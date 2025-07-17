@@ -141,6 +141,23 @@ impl ChatSession {
         }
     }
 
+    pub fn new_with_summary(id: String, first_message: &ChatMessage, project_path: String, summary_title: Option<String>) -> Self {
+        let title = if let Some(summary) = summary_title {
+            summary
+        } else {
+            Self::generate_title(&first_message.extract_text())
+        };
+        
+        Self {
+            id,
+            title,
+            timestamp: first_message.timestamp.clone(),
+            project_path,
+            message_count: 0,
+            last_updated: first_message.timestamp.clone(),
+        }
+    }
+
     fn generate_title(content: &str) -> String {
         // Process backspace characters first
         let processed_content = Self::process_backspaces(content);

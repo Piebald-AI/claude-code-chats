@@ -128,6 +128,7 @@ impl ChatService {
         let mut first_message: Option<ChatMessage> = None;
         let mut message_count = 0;
         let mut last_updated = String::new();
+        let mut last_message_uuid = String::new();
 
         while let Some(line) = lines.next_line().await? {
             if line.trim().is_empty() {
@@ -145,6 +146,7 @@ impl ChatService {
             if raw_msg.message_type == "user" || raw_msg.message_type == "assistant" {
                 message_count += 1;
                 last_updated = raw_msg.timestamp.clone();
+                last_message_uuid = raw_msg.uuid.clone();
 
                 if first_message.is_none() && raw_msg.message_type == "user" {
                     let chat_msg = self.convert_raw_to_chat_message(&raw_msg)?;
@@ -154,7 +156,10 @@ impl ChatService {
         }
 
         if let Some(first_msg) = first_message {
-            let mut session = ChatSession::new(session_id, &first_msg, project_path);
+            // Look up summary for this chat based on the last message UUID
+            let summary_title = self.find_summary_for_chat(&last_message_uuid, file_path.parent().unwrap()).await;
+            
+            let mut session = ChatSession::new_with_summary(session_id, &first_msg, project_path, summary_title);
             session.message_count = message_count;
             session.last_updated = last_updated;
             Ok(session)
@@ -665,5 +670,59 @@ impl ChatService {
     pub async fn get_session_file_path(&self, session_id: &str) -> Result<String> {
         let file_path = self.find_session_file(session_id).await?;
         Ok(file_path.to_string_lossy().to_string())
+    }
+
+    async fn find_summary_for_chat(&self, last_message_uuid: &str, project_dir: &Path) -> Option<String> {
+        // Look for summary files in the same directory
+        let mut entries = match fs::read_dir(project_dir).await {
+            Ok(entries) => entries,
+            Err(_) => return None,
+        };
+
+        while let Some(entry) = entries.next_entry().await.ok().flatten() {
+            if entry.file_type().await.ok()?.is_file() {
+                let file_path = entry.path();
+                if file_path.extension().and_then(|s| s.to_str()) == Some("jsonl") {
+                    // Check if this file contains summaries by looking for summary objects
+                    if let Some(summary) = self.find_summary_in_file(&file_path, last_message_uuid).await {
+                        return Some(summary);
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
+    async fn find_summary_in_file(&self, file_path: &Path, target_leaf_uuid: &str) -> Option<String> {
+        let file = fs::File::open(file_path).await.ok()?;
+        let reader = BufReader::new(file);
+        let mut lines = reader.lines();
+
+        while let Some(line) = lines.next_line().await.ok()? {
+            if line.trim().is_empty() {
+                continue;
+            }
+
+            // Try to parse the line as JSON to check if it's a summary
+            if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(&line) {
+                // Check if this is a summary object
+                if let Some(summary_type) = json_value.get("type").and_then(|v| v.as_str()) {
+                    if summary_type == "summary" {
+                        // Check if the leafUuid matches our target
+                        if let Some(leaf_uuid) = json_value.get("leafUuid").and_then(|v| v.as_str()) {
+                            if leaf_uuid == target_leaf_uuid {
+                                // Return the summary field
+                                if let Some(summary) = json_value.get("summary").and_then(|v| v.as_str()) {
+                                    return Some(summary.to_string());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        None
     }
 }
