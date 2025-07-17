@@ -33,16 +33,29 @@ export const TodoList: React.FC<TodoListProps> = ({ todos, title, className }) =
     }
   };
 
-  const getPriorityColor = (priority: Todo['priority']) => {
+  const getStatusColor = (status: Todo['status']) => {
+    switch (status) {
+      case 'completed':
+        return 'border-l-green-500 bg-green-50 dark:bg-green-900/40 dark:border-l-green-400';
+      case 'in_progress':
+        return 'border-l-blue-500 bg-blue-50 dark:bg-blue-900/40 dark:border-l-blue-400';
+      case 'pending':
+        return 'border-l-gray-500 bg-gray-50 dark:bg-gray-800/60 dark:border-l-gray-400';
+      default:
+        return 'border-l-gray-500 bg-gray-50 dark:bg-gray-800/60 dark:border-l-gray-400';
+    }
+  };
+
+  const getPriorityBorderColor = (priority: Todo['priority']) => {
     switch (priority) {
       case 'high':
-        return 'border-l-red-500 bg-red-50 dark:bg-red-950/20';
+        return 'border-r-red-500';
       case 'medium':
-        return 'border-l-yellow-500 bg-yellow-50 dark:bg-yellow-950/20';
+        return 'border-r-yellow-500';
       case 'low':
-        return 'border-l-green-500 bg-green-50 dark:bg-green-950/20';
+        return 'border-r-green-500';
       default:
-        return 'border-l-gray-500 bg-gray-50 dark:bg-gray-950/20';
+        return 'border-r-gray-500';
     }
   };
 
@@ -79,7 +92,7 @@ export const TodoList: React.FC<TodoListProps> = ({ todos, title, className }) =
             key={todo.id}
             className={cn(
               "flex items-start gap-3 p-3 rounded border-l-4 transition-colors",
-              getPriorityColor(todo.priority),
+              getStatusColor(todo.status),
               todo.status === 'completed' && 'opacity-75'
             )}
           >
