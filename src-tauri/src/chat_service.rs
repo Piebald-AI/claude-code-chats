@@ -177,11 +177,11 @@ impl ChatService {
             if let Ok(raw_msg) = serde_json::from_str::<RawJsonlMessage>(&line) {
                 if raw_msg.message_type == "user" || raw_msg.message_type == "assistant" {
                     if let Ok(chat_msg) = self.convert_raw_to_chat_message(&raw_msg) {
-                        // Check if we should merge this message with the previous one
-                        if self.should_merge_with_previous(&chat_msg, &messages) {
-                            self.merge_tool_calls_with_previous(&chat_msg, &mut messages);
-                        } else if self.should_merge_tool_results_with_previous(&chat_msg, &messages) {
-                            self.merge_tool_results_with_previous(&chat_msg, &mut messages);
+                        // Check if we should merge this message with the previous one based on message ID
+                        if self.should_merge_by_message_id(&chat_msg, &raw_msg, &messages) {
+                            self.merge_with_previous_by_id(&chat_msg, &mut messages);
+                        } else if self.should_merge_tool_results_with_assistant(&chat_msg, &messages) {
+                            self.merge_tool_results_with_assistant(&chat_msg, &mut messages);
                         } else {
                             messages.push(chat_msg);
                         }
@@ -325,6 +325,118 @@ impl ChatService {
         }
     }
 
+    fn should_merge_by_message_id(&self, current_msg: &ChatMessage, raw_msg: &RawJsonlMessage, messages: &[ChatMessage]) -> bool {
+        // Check if this message has the same ID as the previous message
+        if let Some(message_id) = &raw_msg.message.id {
+            if let Some(prev_msg) = messages.last() {
+                // Both messages must be assistant messages
+                if prev_msg.message_type == "assistant" && current_msg.message_type == "assistant" {
+                    // Check if the previous message's uuid ends with the same message ID
+                    return prev_msg.uuid.ends_with(message_id);
+                }
+            }
+        }
+        false
+    }
+
+    fn merge_with_previous_by_id(&self, current_msg: &ChatMessage, messages: &mut Vec<ChatMessage>) {
+        if let Some(prev_msg) = messages.last_mut() {
+            // Merge content blocks from current message into previous message
+            match (&mut prev_msg.content, &current_msg.content) {
+                (MessageContent::Text(prev_text), MessageContent::Mixed(current_blocks)) => {
+                    // Convert previous text to mixed content and add current blocks
+                    let mut blocks = vec![ContentBlock {
+                        block_type: "text".to_string(),
+                        text: Some(prev_text.clone()),
+                        name: None,
+                        input: None,
+                        tool_use_id: None,
+                        content: None,
+                        tool_use_result: None,
+                        thinking: None,
+                    }];
+                    blocks.extend(current_blocks.clone());
+                    prev_msg.content = MessageContent::Mixed(blocks);
+                }
+                (MessageContent::Mixed(prev_blocks), MessageContent::Mixed(current_blocks)) => {
+                    // Add current blocks to previous blocks
+                    prev_blocks.extend(current_blocks.clone());
+                }
+                (MessageContent::Mixed(prev_blocks), MessageContent::Text(current_text)) => {
+                    // Add current text as a text block
+                    prev_blocks.push(ContentBlock {
+                        block_type: "text".to_string(),
+                        text: Some(current_text.clone()),
+                        name: None,
+                        input: None,
+                        tool_use_id: None,
+                        content: None,
+                        tool_use_result: None,
+                        thinking: None,
+                    });
+                }
+                _ => {} // Other combinations are less common
+            }
+        }
+    }
+
+    fn should_merge_tool_results_with_assistant(&self, current_msg: &ChatMessage, messages: &[ChatMessage]) -> bool {
+        // Check if current message is a user message containing only tool results
+        if current_msg.message_type != "user" {
+            return false;
+        }
+
+        // Check if current message contains tool results
+        let has_tool_results = match &current_msg.content {
+            MessageContent::Mixed(blocks) => {
+                blocks.iter().any(|block| block.block_type == "tool_result")
+            }
+            _ => false,
+        };
+
+        if !has_tool_results {
+            return false;
+        }
+
+        // Check if previous message is an assistant message with tool calls
+        if let Some(prev_msg) = messages.last() {
+            prev_msg.message_type == "assistant" && prev_msg.has_tool_calls()
+        } else {
+            false
+        }
+    }
+
+    fn merge_tool_results_with_assistant(&self, current_msg: &ChatMessage, messages: &mut Vec<ChatMessage>) {
+        if let Some(prev_msg) = messages.last_mut() {
+            if let MessageContent::Mixed(current_blocks) = &current_msg.content {
+                // Find tool results in current message
+                let tool_results: Vec<&ContentBlock> = current_blocks
+                    .iter()
+                    .filter(|block| block.block_type == "tool_result")
+                    .collect();
+
+                // Add tool results to the previous assistant message
+                if let MessageContent::Mixed(prev_blocks) = &mut prev_msg.content {
+                    // Match tool results to tool calls by tool_use_id
+                    for tool_result in tool_results {
+                        if let Some(tool_use_id) = &tool_result.tool_use_id {
+                            // Find the matching tool call and add the result
+                            for block in prev_blocks.iter_mut() {
+                                if block.block_type == "tool_use" && 
+                                   block.tool_use_id.as_ref() == Some(tool_use_id) {
+                                    // Add result data to the tool use block
+                                    block.content = tool_result.content.clone();
+                                    block.tool_use_result = tool_result.tool_use_result.clone();
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     fn convert_raw_to_chat_message(&self, raw: &RawJsonlMessage) -> Result<ChatMessage> {
         let mut content = self.parse_message_content(&raw.message.content)?;
         
@@ -339,8 +451,15 @@ impl ChatService {
             }
         }
         
+        // Create a composite uuid that includes both the line uuid and message ID for grouping
+        let uuid = if let Some(message_id) = &raw.message.id {
+            format!("{}#{}", raw.uuid, message_id)
+        } else {
+            raw.uuid.clone()
+        };
+        
         Ok(ChatMessage {
-            uuid: raw.uuid.clone(),
+            uuid,
             parent_uuid: raw.parent_uuid.clone(),
             timestamp: raw.timestamp.clone(),
             message_type: raw.message_type.clone(),
@@ -385,9 +504,17 @@ impl ChatService {
 
         let input = block.get("input").cloned();
 
-        let tool_use_id = block.get("tool_use_id")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
+        // For tool_use blocks, the ID is in the "id" field
+        // For tool_result blocks, the ID is in the "tool_use_id" field
+        let tool_use_id = if block_type == "tool_use" {
+            block.get("id")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        } else {
+            block.get("tool_use_id")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        };
 
         let content = block.get("content")
             .and_then(|v| v.as_str())
