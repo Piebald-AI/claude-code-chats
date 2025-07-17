@@ -154,7 +154,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
       {/* Code content */}
       <div
         className={cn(
-          "shiki font-mono overflow-hidden border border-border rounded-b-lg text-sm",
+          "shiki font-mono overflow-hidden rounded-b-lg text-sm",
           "leading-normal [counter-increment:a_0] [&_.line]:before:[counter-increment:a] [&_.line]:before:content-[counter(a)]",
           "[&_.line]:before:mr-6 [&_.line]:before:ml-3 [&_.line]:before:inline-block [&_.line]:before:text-right",
           "[&_.line]:before:text-muted-foreground [&_.line]:before:w-4",
