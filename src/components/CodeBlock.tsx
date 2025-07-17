@@ -13,8 +13,10 @@ interface CodeBlockProps {
 }
 
 const LANGUAGE_MAPPINGS: Record<string, string> = {
-  'js': 'javascript',
-  'ts': 'typescript', 
+  'js': 'jsx',
+  'ts': 'tsx', 
+  'typescript': 'tsx',
+  'javascript': 'jsx',
   'py': 'python',
   'sh': 'bash',
   'shell': 'bash',
