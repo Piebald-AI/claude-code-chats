@@ -19,6 +19,7 @@ import { TodoList } from "@/components/TodoList";
 import ReactMarkdown from "react-markdown";
 import type { ChatMessage, ContentBlock } from "@/types/chat";
 import { processBackspaces } from "@/utils/textProcessing";
+import remarkGfm from "remark-gfm";
 
 interface MessageRendererProps {
   message: ChatMessage;
@@ -146,6 +147,7 @@ const MessageText: React.FC<MessageTextProps> = ({ content }) => {
             return <>{children}</>;
           },
         }}
+        remarkPlugins={[remarkGfm]}
       >
         {processedContent}
       </ReactMarkdown>
