@@ -45,13 +45,13 @@ export function NavProjects({ projects, selectedSession, onSelectSession }: NavP
       <MinimalSidebarGroupLabel>Projects</MinimalSidebarGroupLabel>
       <MinimalSidebarMenu>
         {projects.map((project) => (
-          <Collapsible key={project.path} defaultOpen={true} className="group/collapsible">
+          <Collapsible key={project.path} className="group/collapsible">
             <MinimalSidebarMenuItem>
               <CollapsibleTrigger asChild>
                 <MinimalSidebarMenuButton>
                   <ChevronRight className="h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                   <Folder className="h-4 w-4" />
-                  <span>{project.name}</span>
+                  <span className="truncate">{project.name}</span>
                   <span className="ml-auto text-xs text-muted-foreground">
                     {project.chat_sessions.length}
                   </span>

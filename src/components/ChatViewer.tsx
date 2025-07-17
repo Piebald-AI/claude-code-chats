@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { MessageSquare, User, Bot, Clock, MoreHorizontal, Copy, ExternalLink } from "lucide-react";
 import { useChatMessages } from "@/hooks/useChats";
 import { MessageRenderer } from "@/components/MessageRenderer";
@@ -21,6 +21,14 @@ interface ChatViewerProps {
 
 export const ChatViewer: React.FC<ChatViewerProps> = ({ selectedSession }) => {
   const { data: messages, isLoading, error } = useChatMessages(selectedSession?.id || null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to top when a new chat is selected
+  useEffect(() => {
+    if (selectedSession && messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = 0;
+    }
+  }, [selectedSession?.id]);
 
   if (!selectedSession) {
     return (
@@ -132,7 +140,7 @@ export const ChatViewer: React.FC<ChatViewerProps> = ({ selectedSession }) => {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto" ref={messagesContainerRef}>
         <div className="max-w-4xl mx-auto p-4">
           {messages?.map((message) => (
             <MessageBlock key={message.uuid} message={message} />
