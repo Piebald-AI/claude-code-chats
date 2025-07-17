@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "claude-code-chats",
+  "productName": "Claude Code Chats",
   "version": "0.1.0",
   "identifier": "com.claude-code-chats.app",
   "build": {
@@ -12,9 +12,9 @@
   "app": {
     "windows": [
       {
-        "title": "claude-code-chats",
-        "width": 800,
-        "height": 600
+        "title": "Claude Code Chats",
+        "width": 1200,
+        "height": 800
       }
     ],
     "security": {

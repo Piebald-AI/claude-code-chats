@@ -55,10 +55,6 @@ pub struct ProjectFolder {
 pub struct RawJsonlMessage {
     #[serde(rename = "parentUuid")]
     pub parent_uuid: Option<String>,
-    #[serde(rename = "isSidechain")]
-    pub is_sidechain: bool,
-    #[serde(rename = "userType")]
-    pub user_type: String,
     pub cwd: String,
     #[serde(rename = "sessionId")]
     pub session_id: String,
@@ -74,7 +70,6 @@ pub struct RawJsonlMessage {
 
 #[derive(Debug, Deserialize)]
 pub struct RawMessage {
-    pub role: String,
     pub content: serde_json::Value, // Can be string or array
     pub id: Option<String>,
     pub model: Option<String>,
@@ -114,32 +109,9 @@ impl ChatMessage {
         }
     }
 
-    pub fn get_tool_calls(&self) -> Vec<&ContentBlock> {
-        match &self.content {
-            MessageContent::Text(_) => vec![],
-            MessageContent::Mixed(blocks) => {
-                blocks
-                    .iter()
-                    .filter(|block| block.block_type == "tool_use")
-                    .collect()
-            }
-        }
-    }
 }
 
 impl ChatSession {
-    pub fn new(id: String, first_message: &ChatMessage, project_path: String) -> Self {
-        let title = Self::generate_title(&first_message.extract_text());
-        
-        Self {
-            id,
-            title,
-            timestamp: first_message.timestamp.clone(),
-            project_path,
-            message_count: 0,
-            last_updated: first_message.timestamp.clone(),
-        }
-    }
 
     pub fn new_with_summary(id: String, first_message: &ChatMessage, project_path: String, summary_title: Option<String>) -> Self {
         let title = if let Some(summary) = summary_title {
