@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ChevronDown, ChevronRight, Terminal, FileText, Eye, EyeOff } from "lucide-react";
+import { ChevronDown, ChevronRight, Terminal, FileText, Eye, EyeOff, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { CodeBlock } from "@/components/CodeBlock";
@@ -58,6 +58,9 @@ const ContentBlockRenderer: React.FC<ContentBlockRendererProps> = ({ block }) =>
     
     case 'tool_result':
       return <ToolResultBlock block={block} />;
+    
+    case 'thinking':
+      return <ThinkingBlock block={block} />;
     
     default:
       return (
@@ -283,6 +286,49 @@ const ToolResultBlock: React.FC<ToolResultBlockProps> = ({ block }) => {
               </div>
             ) : (
               <div className="text-gray-500 italic">No content</div>
+            )}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+    </div>
+  );
+};
+
+interface ThinkingBlockProps {
+  block: ContentBlock;
+}
+
+const ThinkingBlock: React.FC<ThinkingBlockProps> = ({ block }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  return (
+    <div className="border border-purple-200 rounded-lg bg-purple-50 dark:bg-purple-950/50 dark:border-purple-800">
+      <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+        <CollapsibleTrigger asChild>
+          <Button
+            variant="ghost"
+            className="w-full justify-start p-3 h-auto text-left hover:bg-purple-100 dark:hover:bg-purple-900/50"
+          >
+            <div className="flex items-center gap-2">
+              {isExpanded ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
+              )}
+              <Brain className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+              <span className="font-medium">Thinking</span>
+            </div>
+          </Button>
+        </CollapsibleTrigger>
+        
+        <CollapsibleContent>
+          <div className="px-3 pb-3">
+            {block.thinking ? (
+              <div className="bg-white dark:bg-gray-900 border rounded p-3">
+                <MessageText content={block.thinking} />
+              </div>
+            ) : (
+              <div className="text-gray-500 italic">No thinking content</div>
             )}
           </div>
         </CollapsibleContent>

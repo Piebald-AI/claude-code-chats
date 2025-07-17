@@ -21,7 +21,7 @@ export interface ChatMessage {
 export type MessageContent = string | ContentBlock[];
 
 export interface ContentBlock {
-  block_type?: string; // "text", "tool_use", "tool_result"
+  block_type?: string; // "text", "tool_use", "tool_result", "thinking"
   type?: string; // Alternative field name for block_type
   text?: string;
   name?: string; // Tool name
@@ -29,6 +29,7 @@ export interface ContentBlock {
   tool_use_id?: string;
   content?: string; // Tool result content
   tool_use_result?: any; // For TodoWrite and other structured results
+  thinking?: string; // For thinking blocks
 }
 
 export interface ProjectFolder {

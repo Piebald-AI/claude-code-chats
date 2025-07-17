@@ -55,3 +55,8 @@ The `docs/shadcn-ui/` directory contains MDX documentation for various shadcn/ui
 ## Safety and Warnings
 
 - Never, **EVER** run _any_ `pnpm tauri *` commands.  _Not even with flags like `--no-watch`!!!_
+
+## Development Best Practices
+
+- Always run `pnpm tsc` after making many changes to TypeScript code
+- Always run `cargo check` for Rust code compilation verification

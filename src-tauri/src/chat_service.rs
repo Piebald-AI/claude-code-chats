@@ -245,6 +245,7 @@ impl ChatService {
                             tool_use_id: None,
                             content: None,
                             tool_use_result: None,
+                            thinking: None,
                         }];
                         blocks.extend(tool_calls);
                         prev_msg.content = MessageContent::Mixed(blocks);
@@ -310,6 +311,7 @@ impl ChatService {
                             tool_use_id: None,
                             content: None,
                             tool_use_result: None,
+                            thinking: None,
                         }];
                         blocks.extend(tool_results);
                         prev_msg.content = MessageContent::Mixed(blocks);
@@ -391,6 +393,9 @@ impl ChatService {
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
 
+        let thinking = block.get("thinking")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
 
         Ok(ContentBlock {
             block_type,
@@ -400,6 +405,7 @@ impl ChatService {
             tool_use_id,
             content,
             tool_use_result: None, // Will be populated later if needed
+            thinking,
         })
     }
 

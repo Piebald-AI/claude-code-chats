@@ -32,13 +32,14 @@ pub enum MessageContent {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContentBlock {
     #[serde(rename = "type")]
-    pub block_type: String, // "text", "tool_use", "tool_result"
+    pub block_type: String, // "text", "tool_use", "tool_result", "thinking"
     pub text: Option<String>,
     pub name: Option<String>, // Tool name
     pub input: Option<serde_json::Value>,
     pub tool_use_id: Option<String>,
     pub content: Option<String>, // Tool result content
     pub tool_use_result: Option<serde_json::Value>, // For TodoWrite and other structured results
+    pub thinking: Option<String>, // For thinking blocks
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
