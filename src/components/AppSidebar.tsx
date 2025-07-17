@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, MessageCircle, FileText, Wrench, Hash } from "lucide-react";
+import { Search, MessageCircle, FileText, Wrench, Hash, Brain } from "lucide-react";
 import {
   MinimalSidebarInput,
   MinimalSidebarMenu,
@@ -49,6 +49,8 @@ export function AppSidebar({
     switch (matchType) {
       case "content":
         return <MessageCircle className="h-4 w-4" />;
+      case "thinking":
+        return <Brain className="h-4 w-4" />;
       case "tool_name":
         return <Wrench className="h-4 w-4" />;
       case "tool_input":
@@ -66,6 +68,8 @@ export function AppSidebar({
     switch (matchType) {
       case "content":
         return "bg-blue-100 text-blue-800 dark:bg-blue-800/50 dark:text-blue-200";
+      case "thinking":
+        return "bg-purple-100 text-purple-800 dark:bg-purple-800/50 dark:text-purple-200";
       case "tool_name":
         return "bg-green-100 text-green-800 dark:bg-green-800/50 dark:text-green-200";
       case "tool_input":
@@ -83,6 +87,8 @@ export function AppSidebar({
     switch (matchType) {
       case "content":
         return "Message";
+      case "thinking":
+        return "Thinking";
       case "tool_name":
         return "Tool";
       case "tool_input":
@@ -125,7 +131,9 @@ export function AppSidebar({
   const highlightText = (text: string, query: string) => {
     if (!query) return text;
 
-    const parts = text.split(new RegExp(`(${query})`, "gi"));
+    // Escape special regex characters
+    const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const parts = text.split(new RegExp(`(${escapedQuery})`, "gi"));
     return parts.map((part, index) =>
       part.toLowerCase() === query.toLowerCase() ? (
         <mark key={index} className="bg-yellow-200 dark:bg-yellow-800/60 dark:text-yellow-100 px-1 rounded">

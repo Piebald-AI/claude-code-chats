@@ -692,77 +692,203 @@ impl ChatService {
     pub async fn search_chats(&self, query: &str) -> Result<Vec<SearchResult>> {
         let mut results = Vec::new();
         let query_lower = query.to_lowercase();
+        // const MAX_RESULTS: usize = 50; // Limit results for performance
         
-        let projects = self.get_all_projects().await?;
+        // Get all project directories
+        let mut project_entries = fs::read_dir(&self.projects_path).await?;
         
-        for project in projects {
-            for session in project.chat_sessions {
-                let messages = self.get_chat_messages(&session.id).await?;
+        while let Some(project_entry) = project_entries.next_entry().await? {
+            if !project_entry.file_type().await?.is_dir() {
+                continue;
+            }
+            
+            let project_path = project_entry.path();
+            let mut file_entries = fs::read_dir(&project_path).await?;
+            
+            while let Some(file_entry) = file_entries.next_entry().await? {
+                if !file_entry.file_type().await?.is_file() {
+                    continue;
+                }
                 
-                for message in messages {
-                    // Search in text content
-                    let text = message.extract_text();
-                    if text.to_lowercase().contains(&query_lower) {
-                        let snippet = self.create_snippet(&text, &query_lower);
-                        results.push(SearchResult {
-                            session_id: session.id.clone(),
-                            message_uuid: message.uuid.clone(),
-                            snippet,
-                            match_type: "content".to_string(),
-                        });
-                    }
+                let file_path = file_entry.path();
+                if file_path.extension().and_then(|s| s.to_str()) != Some("jsonl") {
+                    continue;
+                }
+                
+                // Stream search through this file
+                if let Ok(file_results) = self.search_file_streaming(&file_path, &query_lower).await {
+                    results.extend(file_results);
                     
-                    // Search in tool names and results
-                    if let MessageContent::Mixed(blocks) = &message.content {
-                        for block in blocks {
-                            if let Some(name) = &block.name {
-                                if name.to_lowercase().contains(&query_lower) {
-                                    results.push(SearchResult {
-                                        session_id: session.id.clone(),
-                                        message_uuid: message.uuid.clone(),
-                                        snippet: format!("Tool: {}", name),
-                                        match_type: "tool_name".to_string(),
-                                    });
-                                }
+                    // Early termination if we have enough results
+                    // if results.len() >= MAX_RESULTS {
+                    //     results.truncate(MAX_RESULTS);
+                    //     return Ok(results);
+                    // }
+                }
+            }
+        }
+        
+        // Sort by relevance (could be improved with scoring)
+        results.sort_by(|a, b| {
+            // Prefer content matches over tool matches
+            let a_priority = match a.match_type.as_str() {
+                "content" => 0,
+                "thinking" => 1,
+                "tool_name" => 2,
+                "tool_input" => 3,
+                "tool_result" => 4,
+                _ => 5,
+            };
+            let b_priority = match b.match_type.as_str() {
+                "content" => 0,
+                "thinking" => 1,
+                "tool_name" => 2,
+                "tool_input" => 3,
+                "tool_result" => 4,
+                _ => 5,
+            };
+            a_priority.cmp(&b_priority)
+        });
+        
+        Ok(results)
+    }
+    
+    async fn search_file_streaming(&self, file_path: &Path, query_lower: &str) -> Result<Vec<SearchResult>> {
+        let mut results = Vec::new();
+        let file = fs::File::open(file_path).await?;
+        let reader = BufReader::new(file);
+        let mut lines = reader.lines();
+        
+        let mut current_session_id: Option<String> = None;
+        
+        while let Some(line) = lines.next_line().await? {
+            if line.trim().is_empty() {
+                continue;
+            }
+            
+            // Fast summary detection - check for summary type before JSON parsing
+            if line.contains("\"type\":\"summary\"") {
+                continue;
+            }
+            
+            // Fast query matching - check if line contains query before JSON parsing
+            if !line.to_lowercase().contains(query_lower) {
+                // Still need to extract session ID for context
+                if current_session_id.is_none() {
+                    if let Some(session_id) = self.extract_session_id_fast(&line) {
+                        current_session_id = Some(session_id);
+                    }
+                }
+                continue;
+            }
+            
+            // Parse JSON only for matching lines
+            if let Ok(raw_msg) = serde_json::from_str::<RawJsonlMessage>(&line) {
+                // Update session ID if we haven't found it yet
+                if current_session_id.is_none() {
+                    current_session_id = Some(raw_msg.session_id.clone());
+                }
+                
+                let session_id = current_session_id.as_ref().unwrap();
+                
+                // Only process user and assistant messages
+                if raw_msg.message_type != "user" && raw_msg.message_type != "assistant" {
+                    continue;
+                }
+                
+                // Search in message content
+                if let Ok(content) = self.parse_message_content(&raw_msg.message.content) {
+                    match content {
+                        MessageContent::Text(text) => {
+                            if text.to_lowercase().contains(query_lower) {
+                                let snippet = self.create_snippet(&text, query_lower);
+                                results.push(SearchResult {
+                                    session_id: session_id.clone(),
+                                    message_uuid: raw_msg.uuid.clone(),
+                                    snippet,
+                                    match_type: "content".to_string(),
+                                });
                             }
-                            
-                            // Search in tool input parameters
-                            if let Some(input) = &block.input {
-                                let input_text = serde_json::to_string(input).unwrap_or_default();
-                                if input_text.to_lowercase().contains(&query_lower) {
-                                    let snippet = self.create_snippet(&input_text, &query_lower);
-                                    results.push(SearchResult {
-                                        session_id: session.id.clone(),
-                                        message_uuid: message.uuid.clone(),
-                                        snippet,
-                                        match_type: "tool_input".to_string(),
-                                    });
+                        }
+                        MessageContent::Mixed(blocks) => {
+                            for block in blocks {
+                                // Search in text blocks (message content)
+                                if let Some(text) = &block.text {
+                                    if text.to_lowercase().contains(query_lower) {
+                                        let snippet = self.create_snippet(text, query_lower);
+                                        results.push(SearchResult {
+                                            session_id: session_id.clone(),
+                                            message_uuid: raw_msg.uuid.clone(),
+                                            snippet,
+                                            match_type: "content".to_string(),
+                                        });
+                                    }
                                 }
-                            }
-                            
-                            if let Some(content) = &block.content {
-                                if content.to_lowercase().contains(&query_lower) {
-                                    let snippet = self.create_snippet(content, &query_lower);
-                                    results.push(SearchResult {
-                                        session_id: session.id.clone(),
-                                        message_uuid: message.uuid.clone(),
-                                        snippet,
-                                        match_type: "tool_result".to_string(),
-                                    });
+                                
+                                // Search in thinking blocks
+                                if let Some(thinking) = &block.thinking {
+                                    if thinking.to_lowercase().contains(query_lower) {
+                                        let snippet = self.create_snippet(thinking, query_lower);
+                                        results.push(SearchResult {
+                                            session_id: session_id.clone(),
+                                            message_uuid: raw_msg.uuid.clone(),
+                                            snippet,
+                                            match_type: "thinking".to_string(),
+                                        });
+                                    }
                                 }
-                            }
-                            
-                            // Search in structured tool results
-                            if let Some(tool_use_result) = &block.tool_use_result {
-                                let result_text = serde_json::to_string(tool_use_result).unwrap_or_default();
-                                if result_text.to_lowercase().contains(&query_lower) {
-                                    let snippet = self.create_snippet(&result_text, &query_lower);
-                                    results.push(SearchResult {
-                                        session_id: session.id.clone(),
-                                        message_uuid: message.uuid.clone(),
-                                        snippet,
-                                        match_type: "tool_structured_result".to_string(),
-                                    });
+                                
+                                // Search in tool names
+                                if let Some(name) = &block.name {
+                                    if name.to_lowercase().contains(query_lower) {
+                                        results.push(SearchResult {
+                                            session_id: session_id.clone(),
+                                            message_uuid: raw_msg.uuid.clone(),
+                                            snippet: format!("Tool: {}", name),
+                                            match_type: "tool_name".to_string(),
+                                        });
+                                    }
+                                }
+                                
+                                // Search in tool input
+                                if let Some(input) = &block.input {
+                                    let input_text = serde_json::to_string(input).unwrap_or_default();
+                                    if input_text.to_lowercase().contains(query_lower) {
+                                        let snippet = self.create_snippet(&input_text, query_lower);
+                                        results.push(SearchResult {
+                                            session_id: session_id.clone(),
+                                            message_uuid: raw_msg.uuid.clone(),
+                                            snippet,
+                                            match_type: "tool_input".to_string(),
+                                        });
+                                    }
+                                }
+                                
+                                // Search in tool results (content field)
+                                if let Some(content) = &block.content {
+                                    if content.to_lowercase().contains(query_lower) {
+                                        let snippet = self.create_snippet(content, query_lower);
+                                        results.push(SearchResult {
+                                            session_id: session_id.clone(),
+                                            message_uuid: raw_msg.uuid.clone(),
+                                            snippet,
+                                            match_type: "tool_result".to_string(),
+                                        });
+                                    }
+                                }
+                                
+                                // Search in structured tool results
+                                if let Some(tool_use_result) = &block.tool_use_result {
+                                    let result_text = serde_json::to_string(tool_use_result).unwrap_or_default();
+                                    if result_text.to_lowercase().contains(query_lower) {
+                                        let snippet = self.create_snippet(&result_text, query_lower);
+                                        results.push(SearchResult {
+                                            session_id: session_id.clone(),
+                                            message_uuid: raw_msg.uuid.clone(),
+                                            snippet,
+                                            match_type: "tool_structured_result".to_string(),
+                                        });
+                                    }
                                 }
                             }
                         }
@@ -772,6 +898,17 @@ impl ChatService {
         }
         
         Ok(results)
+    }
+    
+    fn extract_session_id_fast(&self, line: &str) -> Option<String> {
+        // Fast extraction without full JSON parsing
+        if let Some(start) = line.find("\"sessionId\":\"") {
+            let start_pos = start + 13; // Length of "\"sessionId\":\""
+            if let Some(end) = line[start_pos..].find('"') {
+                return Some(line[start_pos..start_pos + end].to_string());
+            }
+        }
+        None
     }
 
     fn create_snippet(&self, text: &str, query: &str) -> String {
