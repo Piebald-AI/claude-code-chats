@@ -36,13 +36,13 @@ export const TodoList: React.FC<TodoListProps> = ({ todos, title, className }) =
   const getPriorityColor = (priority: Todo['priority']) => {
     switch (priority) {
       case 'high':
-        return 'border-l-red-500 bg-red-50';
+        return 'border-l-red-500 bg-red-50 dark:bg-red-950/20';
       case 'medium':
-        return 'border-l-yellow-500 bg-yellow-50';
+        return 'border-l-yellow-500 bg-yellow-50 dark:bg-yellow-950/20';
       case 'low':
-        return 'border-l-green-500 bg-green-50';
+        return 'border-l-green-500 bg-green-50 dark:bg-green-950/20';
       default:
-        return 'border-l-gray-500 bg-gray-50';
+        return 'border-l-gray-500 bg-gray-50 dark:bg-gray-950/20';
     }
   };
 
@@ -63,11 +63,11 @@ export const TodoList: React.FC<TodoListProps> = ({ todos, title, className }) =
   const totalCount = todos.length;
 
   return (
-    <div className={cn("border rounded-lg p-4 bg-slate-50", className)}>
+    <div className={cn("border rounded-lg p-4 bg-slate-50 dark:bg-slate-900 dark:border-slate-700", className)}>
       {title && (
         <div className="flex items-center justify-between mb-3">
-          <h4 className="font-medium text-slate-800">{title}</h4>
-          <div className="text-sm text-slate-600">
+          <h4 className="font-medium text-slate-800 dark:text-slate-200">{title}</h4>
+          <div className="text-sm text-slate-600 dark:text-slate-400">
             {completedCount}/{totalCount} completed
           </div>
         </div>
@@ -89,8 +89,8 @@ export const TodoList: React.FC<TodoListProps> = ({ todos, title, className }) =
             
             <div className="flex-1 min-w-0">
               <div className={cn(
-                "text-sm",
-                todo.status === 'completed' && 'line-through text-gray-600'
+                "text-sm dark:text-slate-300",
+                todo.status === 'completed' && 'line-through text-gray-600 dark:text-gray-400'
               )}>
                 {todo.content}
               </div>
@@ -98,18 +98,18 @@ export const TodoList: React.FC<TodoListProps> = ({ todos, title, className }) =
               <div className="flex items-center gap-3 mt-1">
                 <span className={cn(
                   "text-xs px-2 py-1 rounded-full",
-                  todo.status === 'completed' && 'bg-green-100 text-green-700',
-                  todo.status === 'in_progress' && 'bg-blue-100 text-blue-700',
-                  todo.status === 'pending' && 'bg-gray-100 text-gray-700'
+                  todo.status === 'completed' && 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+                  todo.status === 'in_progress' && 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+                  todo.status === 'pending' && 'bg-gray-100 text-gray-700 dark:bg-gray-700/50 dark:text-gray-300'
                 )}>
                   {getStatusText(todo.status)}
                 </span>
                 
                 <span className={cn(
                   "text-xs px-2 py-1 rounded-full",
-                  todo.priority === 'high' && 'bg-red-100 text-red-700',
-                  todo.priority === 'medium' && 'bg-yellow-100 text-yellow-700',
-                  todo.priority === 'low' && 'bg-green-100 text-green-700'
+                  todo.priority === 'high' && 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+                  todo.priority === 'medium' && 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+                  todo.priority === 'low' && 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
                 )}>
                   {todo.priority} priority
                 </span>
@@ -120,11 +120,11 @@ export const TodoList: React.FC<TodoListProps> = ({ todos, title, className }) =
       </div>
       
       {completedCount > 0 && (
-        <div className="mt-3 pt-3 border-t">
-          <div className="flex items-center gap-2 text-sm text-slate-600">
-            <div className="flex-1 bg-gray-200 rounded-full h-2">
+        <div className="mt-3 pt-3 border-t dark:border-slate-700">
+          <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+            <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
               <div 
-                className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                className="bg-green-500 dark:bg-green-400 h-2 rounded-full transition-all duration-300"
                 style={{ width: `${(completedCount / totalCount) * 100}%` }}
               />
             </div>

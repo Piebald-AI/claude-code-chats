@@ -65,17 +65,17 @@ export function AppSidebar({
   const getMatchTypeColor = (matchType: string) => {
     switch (matchType) {
       case "content":
-        return "bg-blue-100 text-blue-800";
+        return "bg-blue-100 text-blue-800 dark:bg-blue-800/50 dark:text-blue-200";
       case "tool_name":
-        return "bg-green-100 text-green-800";
+        return "bg-green-100 text-green-800 dark:bg-green-800/50 dark:text-green-200";
       case "tool_input":
-        return "bg-orange-100 text-orange-800";
+        return "bg-orange-100 text-orange-800 dark:bg-orange-800/50 dark:text-orange-200";
       case "tool_result":
-        return "bg-purple-100 text-purple-800";
+        return "bg-purple-100 text-purple-800 dark:bg-purple-800/50 dark:text-purple-200";
       case "tool_structured_result":
-        return "bg-indigo-100 text-indigo-800";
+        return "bg-indigo-100 text-indigo-800 dark:bg-indigo-800/50 dark:text-indigo-200";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-gray-100 text-gray-800 dark:bg-gray-600/50 dark:text-gray-200";
     }
   };
 
@@ -128,7 +128,7 @@ export function AppSidebar({
     const parts = text.split(new RegExp(`(${query})`, "gi"));
     return parts.map((part, index) =>
       part.toLowerCase() === query.toLowerCase() ? (
-        <mark key={index} className="bg-yellow-200 px-1 rounded">
+        <mark key={index} className="bg-yellow-200 dark:bg-yellow-800/60 dark:text-yellow-100 px-1 rounded">
           {part}
         </mark>
       ) : (

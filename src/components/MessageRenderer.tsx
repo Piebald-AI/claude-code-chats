@@ -102,9 +102,7 @@ interface MessageTextProps {
   isToolResult?: boolean;
 }
 
-const MessageText: React.FC<MessageTextProps> = ({
-  content,
-}) => {
+const MessageText: React.FC<MessageTextProps> = ({ content }) => {
   if (!content.trim()) return null;
 
   const processedContent = processBackspaces(content);
@@ -115,7 +113,9 @@ const MessageText: React.FC<MessageTextProps> = ({
         components={{
           code: ({ className, children, ...props }) => {
             // Check if this is inline code by looking at the parent node
-            const isInline = !className?.includes("language-");
+            const isInline =
+              !className?.includes("language-") &&
+              !(children as string).includes("\n");
 
             // Handle inline code (e.g., `code` in text)
             if (isInline) {
@@ -223,7 +223,9 @@ const ToolUseBlock: React.FC<ToolUseBlockProps> = ({ block }) => {
                     ) : (
                       <div className="space-y-2">
                         {/* {block.content && <MessageText content={block.content} isToolResult={true} />} */}
-                        {block.content && <CodeBlock language="text" code={block.content} />}
+                        {block.content && (
+                          <CodeBlock language="text" code={block.content} />
+                        )}
                         <details className="text-xs">
                           <summary className="cursor-pointer text-gray-500">
                             Show structured result
