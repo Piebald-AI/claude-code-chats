@@ -6,6 +6,9 @@ import App from "./App";
 import "./index.css";
 import { ThemeProvider } from "next-themes";
 
+import "@fontsource-variable/inter";
+import "@fontsource-variable/jetbrains-mono";
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
