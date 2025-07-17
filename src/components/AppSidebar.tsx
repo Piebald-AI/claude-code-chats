@@ -51,7 +51,11 @@ export function AppSidebar({
         return <MessageCircle className="h-4 w-4" />;
       case "tool_name":
         return <Wrench className="h-4 w-4" />;
+      case "tool_input":
+        return <Wrench className="h-4 w-4" />;
       case "tool_result":
+        return <FileText className="h-4 w-4" />;
+      case "tool_structured_result":
         return <FileText className="h-4 w-4" />;
       default:
         return <Hash className="h-4 w-4" />;
@@ -64,8 +68,12 @@ export function AppSidebar({
         return "bg-blue-100 text-blue-800";
       case "tool_name":
         return "bg-green-100 text-green-800";
+      case "tool_input":
+        return "bg-orange-100 text-orange-800";
       case "tool_result":
         return "bg-purple-100 text-purple-800";
+      case "tool_structured_result":
+        return "bg-indigo-100 text-indigo-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -77,8 +85,12 @@ export function AppSidebar({
         return "Message";
       case "tool_name":
         return "Tool";
+      case "tool_input":
+        return "Input";
       case "tool_result":
         return "Result";
+      case "tool_structured_result":
+        return "Data";
       default:
         return "Match";
     }

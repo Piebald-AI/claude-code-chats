@@ -37,7 +37,11 @@ export const SearchInterface: React.FC<SearchInterfaceProps> = ({
         return <MessageCircle className="h-4 w-4" />;
       case "tool_name":
         return <Wrench className="h-4 w-4" />;
+      case "tool_input":
+        return <Wrench className="h-4 w-4" />;
       case "tool_result":
+        return <FileText className="h-4 w-4" />;
+      case "tool_structured_result":
         return <FileText className="h-4 w-4" />;
       default:
         return <Hash className="h-4 w-4" />;
@@ -50,8 +54,12 @@ export const SearchInterface: React.FC<SearchInterfaceProps> = ({
         return "bg-blue-100 text-blue-800";
       case "tool_name":
         return "bg-green-100 text-green-800";
+      case "tool_input":
+        return "bg-orange-100 text-orange-800";
       case "tool_result":
         return "bg-purple-100 text-purple-800";
+      case "tool_structured_result":
+        return "bg-indigo-100 text-indigo-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -63,8 +71,12 @@ export const SearchInterface: React.FC<SearchInterfaceProps> = ({
         return "Message";
       case "tool_name":
         return "Tool";
+      case "tool_input":
+        return "Input";
       case "tool_result":
         return "Result";
+      case "tool_structured_result":
+        return "Data";
       default:
         return "Match";
     }
@@ -119,7 +131,7 @@ export const SearchInterface: React.FC<SearchInterfaceProps> = ({
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search across all messages, tools, and results..."
+            placeholder="Search across all messages, tools, inputs, and results..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="pl-10"
@@ -135,7 +147,7 @@ export const SearchInterface: React.FC<SearchInterfaceProps> = ({
             <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <p>Enter a search query to find content across all your chats</p>
             <p className="text-sm mt-2">
-              Search includes message content, tool names, and tool results
+              Search includes message content, tool names, inputs, and results
             </p>
           </div>
         ) : isLoading ? (

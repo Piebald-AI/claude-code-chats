@@ -104,7 +104,6 @@ interface MessageTextProps {
 
 const MessageText: React.FC<MessageTextProps> = ({
   content,
-  isToolResult = false,
 }) => {
   if (!content.trim()) return null;
 

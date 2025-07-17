@@ -573,6 +573,20 @@ impl ChatService {
                                 }
                             }
                             
+                            // Search in tool input parameters
+                            if let Some(input) = &block.input {
+                                let input_text = serde_json::to_string(input).unwrap_or_default();
+                                if input_text.to_lowercase().contains(&query_lower) {
+                                    let snippet = self.create_snippet(&input_text, &query_lower);
+                                    results.push(SearchResult {
+                                        session_id: session.id.clone(),
+                                        message_uuid: message.uuid.clone(),
+                                        snippet,
+                                        match_type: "tool_input".to_string(),
+                                    });
+                                }
+                            }
+                            
                             if let Some(content) = &block.content {
                                 if content.to_lowercase().contains(&query_lower) {
                                     let snippet = self.create_snippet(content, &query_lower);
@@ -581,6 +595,20 @@ impl ChatService {
                                         message_uuid: message.uuid.clone(),
                                         snippet,
                                         match_type: "tool_result".to_string(),
+                                    });
+                                }
+                            }
+                            
+                            // Search in structured tool results
+                            if let Some(tool_use_result) = &block.tool_use_result {
+                                let result_text = serde_json::to_string(tool_use_result).unwrap_or_default();
+                                if result_text.to_lowercase().contains(&query_lower) {
+                                    let snippet = self.create_snippet(&result_text, &query_lower);
+                                    results.push(SearchResult {
+                                        session_id: session.id.clone(),
+                                        message_uuid: message.uuid.clone(),
+                                        snippet,
+                                        match_type: "tool_structured_result".to_string(),
                                     });
                                 }
                             }
