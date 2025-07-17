@@ -1,5 +1,6 @@
 use crate::types::*;
 use anyhow::{Context, Result};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tokio::fs;
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -56,13 +57,17 @@ impl ChatService {
 
     pub async fn get_project_sessions(&self, project_path: &Path) -> Result<Vec<ChatSession>> {
         let mut sessions = Vec::new();
+        
+        // Build summary index upfront for this project
+        let summary_index = self.build_summary_index(project_path).await;
+        
         let mut entries = fs::read_dir(project_path).await?;
 
         while let Some(entry) = entries.next_entry().await? {
             if entry.file_type().await?.is_file() {
                 let file_path = entry.path();
                 if file_path.extension().and_then(|s| s.to_str()) == Some("jsonl") {
-                    if let Ok(session) = self.parse_session_from_file(&file_path).await {
+                    if let Ok(session) = self.parse_session_from_file_with_index(&file_path, &summary_index).await {
                         sessions.push(session);
                     }
                 }
@@ -91,11 +96,9 @@ impl ChatService {
                     if file_entry.file_type().await?.is_file() {
                         let file_path = file_entry.path();
                         if file_path.extension().and_then(|s| s.to_str()) == Some("jsonl") {
-                            // Check if this file contains our session
-                            if let Ok(first_line) = self.read_first_line(&file_path).await {
-                                if first_line.contains(&format!("\"sessionId\":\"{}\"", session_id)) {
-                                    return Ok(file_path);
-                                }
+                            // Check if this file contains our session by reading through lines
+                            if self.file_contains_session_id(&file_path, session_id).await? {
+                                return Ok(file_path);
                             }
                         }
                     }
@@ -104,6 +107,34 @@ impl ChatService {
         }
 
         Err(anyhow::anyhow!("Session file not found for ID: {}", session_id))
+    }
+
+    async fn file_contains_session_id(&self, file_path: &Path, session_id: &str) -> Result<bool> {
+        let file = fs::File::open(file_path).await?;
+        let reader = BufReader::new(file);
+        let mut lines = reader.lines();
+        
+        while let Some(line) = lines.next_line().await? {
+            if line.trim().is_empty() {
+                continue;
+            }
+            
+            // Skip summary objects - they won't contain sessionId
+            if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(&line) {
+                if let Some(line_type) = json_value.get("type").and_then(|v| v.as_str()) {
+                    if line_type == "summary" {
+                        continue;
+                    }
+                }
+            }
+            
+            // Check if this line contains our session ID
+            if line.contains(&format!("\"sessionId\":\"{}\"", session_id)) {
+                return Ok(true);
+            }
+        }
+        
+        Ok(false)
     }
 
     async fn read_first_line(&self, file_path: &Path) -> Result<String> {
@@ -133,6 +164,15 @@ impl ChatService {
         while let Some(line) = lines.next_line().await? {
             if line.trim().is_empty() {
                 continue;
+            }
+
+            // First check if this is a summary object - if so, skip it
+            if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(&line) {
+                if let Some(line_type) = json_value.get("type").and_then(|v| v.as_str()) {
+                    if line_type == "summary" {
+                        continue; // Skip summary objects
+                    }
+                }
             }
 
             let raw_msg: RawJsonlMessage = serde_json::from_str(&line)
@@ -168,6 +208,104 @@ impl ChatService {
         }
     }
 
+    async fn parse_session_from_file_with_index(&self, file_path: &Path, summary_index: &HashMap<String, String>) -> Result<ChatSession> {
+        let file = fs::File::open(file_path).await?;
+        let reader = BufReader::new(file);
+        let mut lines = reader.lines();
+        
+        let mut session_id = String::new();
+        let mut project_path = String::new();
+        let mut first_message: Option<ChatMessage> = None;
+        let mut message_count = 0;
+        let mut last_updated = String::new();
+        let mut last_message_uuid = String::new();
+
+        while let Some(line) = lines.next_line().await? {
+            if line.trim().is_empty() {
+                continue;
+            }
+
+            // First check if this is a summary object - if so, skip it
+            if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(&line) {
+                if let Some(line_type) = json_value.get("type").and_then(|v| v.as_str()) {
+                    if line_type == "summary" {
+                        continue; // Skip summary objects
+                    }
+                }
+            }
+
+            let raw_msg: RawJsonlMessage = serde_json::from_str(&line)
+                .context("Failed to parse JSONL line")?;
+
+            if session_id.is_empty() {
+                session_id = raw_msg.session_id.clone();
+                project_path = raw_msg.cwd.clone();
+            }
+
+            if raw_msg.message_type == "user" || raw_msg.message_type == "assistant" {
+                message_count += 1;
+                last_updated = raw_msg.timestamp.clone();
+                last_message_uuid = raw_msg.uuid.clone();
+
+                if first_message.is_none() && raw_msg.message_type == "user" {
+                    let chat_msg = self.convert_raw_to_chat_message(&raw_msg)?;
+                    first_message = Some(chat_msg);
+                }
+            }
+        }
+
+        if let Some(first_msg) = first_message {
+            // Look up summary from index (much faster than file scanning)
+            let summary_title = summary_index.get(&last_message_uuid).cloned();
+            
+            let mut session = ChatSession::new_with_summary(session_id, &first_msg, project_path, summary_title);
+            session.message_count = message_count;
+            session.last_updated = last_updated;
+            Ok(session)
+        } else {
+            Err(anyhow::anyhow!("No valid messages found in file"))
+        }
+    }
+
+    async fn build_summary_index(&self, project_path: &Path) -> HashMap<String, String> {
+        let mut summary_index = HashMap::new();
+        
+        if let Ok(mut entries) = fs::read_dir(project_path).await {
+            while let Some(entry) = entries.next_entry().await.ok().flatten() {
+                if entry.file_type().await.ok().map_or(false, |ft| ft.is_file()) {
+                    let file_path = entry.path();
+                    if file_path.extension().and_then(|s| s.to_str()) == Some("jsonl") {
+                        if let Ok(file) = fs::File::open(&file_path).await {
+                            let reader = BufReader::new(file);
+                            let mut lines = reader.lines();
+                            
+                            while let Some(line) = lines.next_line().await.ok().flatten() {
+                                if line.trim().is_empty() {
+                                    continue;
+                                }
+                                
+                                if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(&line) {
+                                    if let Some(line_type) = json_value.get("type").and_then(|v| v.as_str()) {
+                                        if line_type == "summary" {
+                                            if let (Some(leaf_uuid), Some(summary)) = (
+                                                json_value.get("leafUuid").and_then(|v| v.as_str()),
+                                                json_value.get("summary").and_then(|v| v.as_str())
+                                            ) {
+                                                summary_index.insert(leaf_uuid.to_string(), summary.to_string());
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        summary_index
+    }
+
     async fn parse_messages_from_file(&self, file_path: &Path) -> Result<Vec<ChatMessage>> {
         let file = fs::File::open(file_path).await?;
         let reader = BufReader::new(file);
@@ -177,6 +315,15 @@ impl ChatService {
         while let Some(line) = lines.next_line().await? {
             if line.trim().is_empty() {
                 continue;
+            }
+
+            // First check if this is a summary object - if so, skip it
+            if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(&line) {
+                if let Some(line_type) = json_value.get("type").and_then(|v| v.as_str()) {
+                    if line_type == "summary" {
+                        continue; // Skip summary objects
+                    }
+                }
             }
 
             if let Ok(raw_msg) = serde_json::from_str::<RawJsonlMessage>(&line) {
