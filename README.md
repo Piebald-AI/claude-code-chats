@@ -6,6 +6,6 @@ A simple, fast local viewer for your Claude Code sessions.
 
 ## LICENSE
 
-[MIT]
+[MIT](./LICENSE)
 
 Copyright &copy; 2025 [Piebald LLC](https://piebald.ai).
