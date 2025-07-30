@@ -4,7 +4,7 @@ A simple, fast local viewer for your Claude Code sessions.
 
 ![Screenshot of Claude Code Chats](./assets/screenshot.png)
 
-## LICENSE
+## License
 
 [MIT](./LICENSE)
 
