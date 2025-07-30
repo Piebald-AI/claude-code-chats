@@ -1,7 +1,11 @@
-# Tauri + React + Typescript
+# Claude Code Chats
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+A simple, fast local viewer for your Claude Code sessions.
 
-## Recommended IDE Setup
+![Screenshot of Claude Code Chats](./assets/screenshot.png)
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+## LICENSE
+
+[MIT]
+
+Copyright &copy; 2025 [Piebald LLC](https://piebald.ai).
